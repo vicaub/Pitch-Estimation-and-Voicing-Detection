@@ -2,6 +2,14 @@
 
 ## Installation
 
+Download the FDA-UE database to test the script and optionnaly the PTDB-TUB database to train the model (see below)
+
+You need Python 3
+
+"""
+Make
+"""
+
 ## How to use it
 
 ### Machine Learning model

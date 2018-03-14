@@ -7,7 +7,6 @@
 
 using namespace std;
 
-
 const float gross_threshold = 0.2F;
 
 int read_gui(const string &filename, vector<string> &gui) {
@@ -126,12 +125,14 @@ int main(int argc, const char *argv[]) {
     vvTot=0, nfiles=0;
   float fineTot=0.0F;
 
+  // reading the data location
   vector<string> gui;
   if (read_gui(argv[1], gui)) {
     cerr << "Error reading gui file: " << argv[1] << endl;
     return 1;
   }
 
+  // getting the algorithm.info file
   string dirname = gui[0];
   regex reg("/.*");
   dirname = regex_replace(dirname, reg, "");
@@ -142,6 +143,10 @@ int main(int argc, const char *argv[]) {
     return 5;
   }
 
+  // store the results in a file
+  freopen(("results/" + algorithm + ".txt").c_str(),"w", stdout);
+
+  // analysing the results
   for (int i=0; i<gui.size(); ++i) {
     vector<float> f0ref, f0test;
     string fref = "data/" + gui[i] + ".f0ref";
@@ -157,7 +162,6 @@ int main(int argc, const char *argv[]) {
     }
     
     cout << "### Compare reference" << fref << " and " << ftest << " computed with " << algorithm << "\n";
-    // cout << "### Compare reference" << fref << " and " << ftest << " computed with " << "\n";
 
     int diff_frames = f0ref.size() - f0test.size();
     if (abs(diff_frames) > 5) {
