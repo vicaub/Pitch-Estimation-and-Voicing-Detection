@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iomanip>
 #include <vector>
+#include <regex>
 #include <math.h>
 
 using namespace std;
@@ -18,6 +19,18 @@ int read_gui(const string &filename, vector<string> &gui) {
   string s;
   while (is >> s)
     gui.push_back(s);
+
+  return 0;
+}
+
+int read_algorithm(const string &filename, string &algorithm) {
+  ifstream is(filename.c_str());
+  if (!is.good())
+    return -1;
+
+  string s;
+  while (is >> s)
+    algorithm = s;
 
   return 0;
 }
@@ -68,10 +81,10 @@ void compare(const vector<float> &vref,
       float f = fabs((vref[i] - vtest[i])/vref[i]);
       num_voiced_voiced++;
       if  (f > gross_threshold) {
-	num_gross_errors++;
+	      num_gross_errors++;
       } else {
-	nfine++;
-	fine_error += f*f;
+        nfine++;
+        fine_error += f*f;
       }
     }
   }
@@ -104,8 +117,8 @@ int main(int argc, const char *argv[]) {
     cerr << "Usage: " << argv[0] << " file.gui \n";
     cerr << "       For each basename in file.gui, we compare the \n"
          << "       reference pitch values in basename.f0ref \n" 
-	 << "       with the obtained values in basename.f0 \n" 
-	 << "       Both files has to be in the same directory.";
+	       << "       with the obtained values in basename.f0 \n" 
+	       << "       Both files has to be in the same directory.";
     return 1;
   }
 
@@ -117,6 +130,16 @@ int main(int argc, const char *argv[]) {
   if (read_gui(argv[1], gui)) {
     cerr << "Error reading gui file: " << argv[1] << endl;
     return 1;
+  }
+
+  string dirname = gui[0];
+  regex reg("/.*");
+  dirname = regex_replace(dirname, reg, "");
+  dirname = "data/" + dirname + "/algorithm.info";
+  string algorithm;
+  if (read_algorithm(dirname, algorithm)) {
+    cerr << "Error reading the algorithm.info file" << endl;
+    return 5;
   }
 
   for (int i=0; i<gui.size(); ++i) {
@@ -133,7 +156,8 @@ int main(int argc, const char *argv[]) {
       return 3;
     }
     
-    cout << "### Compare " << fref << " and " << ftest << "\n";
+    cout << "### Compare reference" << fref << " and " << ftest << " computed with " << algorithm << "\n";
+    // cout << "### Compare reference" << fref << " and " << ftest << " computed with " << "\n";
 
     int diff_frames = f0ref.size() - f0test.size();
     if (abs(diff_frames) > 5) {

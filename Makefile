@@ -1,5 +1,5 @@
-EXEC      = pitch_compare
-SRC_FILES = pitch_compare.cpp
+EXEC      = compare_pitch
+SRC_FILES = compare_pitch.cpp
 
 CC              = g++
 DEBUG_LEVEL     = -O2

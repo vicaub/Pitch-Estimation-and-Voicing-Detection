@@ -6,5 +6,6 @@
 *.o
 .idea
 .vscode
-pitch_compare
+compare_pitch
 data/ptdb_tug*
+algorithm.info

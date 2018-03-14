@@ -11,7 +11,8 @@ from scipy.io import wavfile
 from scipy.signal import correlate, hamming
 
 
-def getZeroCrossing(frame):
+
+def get_zero_crossing(frame):
     """
     Computes zero crossing rate of frame
     """
@@ -20,7 +21,7 @@ def getZeroCrossing(frame):
     return (np.float64(countZ) / np.float64(count-1.0))
 
 
-def getEnergy(frame):
+def get_energy(frame):
     """
     Computes signal energy of frame
     """
@@ -65,8 +66,8 @@ def amdf_method(frame, sampleRate):
     """
     estimate the pitch using mdf algorithm
     """
-    energy = getEnergy(frame)
-    zeroCrossing = getZeroCrossing(frame)
+    energy = get_energy(frame)
+    zeroCrossing = get_zero_crossing(frame)
 
     if zeroCrossing > 0.1 or energy < 500:
         return 0
@@ -95,8 +96,8 @@ def amdf_method(frame, sampleRate):
 def cepstrum_method(frame, sampleRate):
     """
     """
-    energy = getEnergy(frame)
-    zeroCrossing = getZeroCrossing(frame)
+    energy = get_energy(frame)
+    zeroCrossing = get_zero_crossing(frame)
 
     if zeroCrossing > 0.1 or energy < 500:
         return 0
@@ -169,10 +170,16 @@ def main(options, args):
     # get the wav files
     wavFiles = getWavFiles(options, args[0])
 
+    # print the algorithm name at the top of the directory
+    header_file = os.path.join(os.path.dirname(wavFiles[0]["fileName"]), "algorithm.info")
+    with open(header_file, 'wt') as header_file:
+        print(options.method, file=header_file)
+
+
     for wavFile in wavFiles:
-        f0_filename = wavFile["fileName"].replace(".wav", "." + options.method + ".f0")
+        f0_filename = wavFile["fileName"].replace(".wav", ".f0")
         with open(f0_filename, 'wt') as f0file:
-            print("Processing:", wavFile["fileName"], '->', f0_filename)
+            print("Processing:", wavFile["fileName"], "with", options.method, '->', f0_filename)
             for frame in wavFile["frames"]:
                 # compute the pitch for each frame
                 f0 = 0
@@ -186,24 +193,6 @@ def main(options, args):
                 # print the result in the new file
                 print(f0, file=f0file)
 
-
-
-    # wavFile = wavFiles[0]
-    # f0_filename = wavFile["fileName"].replace(".wav", "." + options.method + ".f0")
-    # with open(f0_filename, 'wt') as f0file:
-    #     print("Processing:", wavFile["fileName"], '->', f0_filename)
-    #     frame = wavFile["frames"][0]
-    #     # compute the pitch for each frame
-    #     f0 = 0
-    #     if options.method == "autocorrelation":
-    #         f0 = autocorr_method(frame, wavFile["sampleRate"])
-    #     elif options.method == "mdf":
-    #         f0 = mdf_method(frame, wavFile["sampleRate"])
-    #     elif options.method == "cepstrum":
-    #         f0 = cepstrum_method(frame, wavFile["sampleRate"])
-        
-    #     # print the result in the new file
-    #     print(f0, file=f0file)
 
 
 if __name__ == "__main__":
@@ -223,7 +212,7 @@ if __name__ == "__main__":
         '-d', '--datadir', type='string', default='data',
         help='data folder')
     optparser.add_option(
-        '-m', '--method', type='string', default='mdf',
+        '-m', '--method', type='string', default='amdf',
         help='pitch detection method: autocorrelation, cepstrum or amdf (default)')
 
     options, args = optparser.parse_args()
