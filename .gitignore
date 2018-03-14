@@ -1,0 +1,10 @@
+*.f0
+*.zip
+*.tar
+*.tgz
+*.d
+*.o
+.idea
+.vscode
+pitch_compare
+data/ptdb_tug*
