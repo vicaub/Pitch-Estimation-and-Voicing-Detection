@@ -27,7 +27,7 @@ def get_energy(frame):
     """
     return np.sum(frame ** 2) / np.float64(len(frame))
 
-def autocorr_method(frame, sampleRate):
+def autocorr_method(frame, sample_rate):
     """
     Estimate pitch using autocorrelation
     """
@@ -55,51 +55,62 @@ def autocorr_method(frame, sampleRate):
     # Find the next peak
     peak = np.argmax(corr[rmin1:]) + rmin1
     rmax = corr[peak]/corr[0]
-    f0 = sampleRate / peak
+    f0 = sample_rate / peak
 
     if rmax > 0.5 and f0 > 50 and f0 < 400:
         return f0
     else:
         return 0
 
-def amdf_method(frame, sampleRate):
+def amdf_method(frame, sample_rate):
     """
     estimate the pitch using mdf algorithm
     """
     energy = get_energy(frame)
-    zeroCrossing = get_zero_crossing(frame)
+    zero_crossing = get_zero_crossing(frame)
 
-    if zeroCrossing > 0.1 or energy < 500:
+    # if zero_crossing > 0.1 or energy < 500:
+    #     return 0
+
+    # preprocessing
+    frame = frame.astype(np.float)
+    frame -= frame.mean()
+    amax = np.abs(frame).max()
+    if amax > 0:
+        frame /= amax
+    else:
         return 0
 
     minValue = float("inf")
     minArg = 0
-    kmin = int(sampleRate / 350)
-    kmax = int(sampleRate / 100)
+    kmin = int(sample_rate / 350)
+    kmax = int(sample_rate / 100)
     n = len(frame)
+
     for k in range(kmin, kmax):
-        i = k
-        mdf = 0
 
-        mdf = np.sum(np.absolute(np.diff(frame)))
+        mdf = np.sum(np.absolute(frame - np.roll(frame, k)))
 
-        amdf = mdf / n - 1
+        # amdf = mdf / n - 1 - k
             
-        if amdf < minValue:
-            minValue = amdf
-            minArg = k
-    
+        # if amdf < minValue:
+        #     minValue = amdf
+        #     minArg = k
 
-    return sampleRate / minArg
+        if mdf < minValue:
+            minValue = mdf
+            minArg = k    
+
+    return sample_rate / minArg
 
 
-def cepstrum_method(frame, sampleRate):
+def cepstrum_method(frame, sample_rate):
     """
     """
     energy = get_energy(frame)
-    zeroCrossing = get_zero_crossing(frame)
+    zero_crossing = get_zero_crossing(frame)
 
-    if zeroCrossing > 0.1 or energy < 500:
+    if zero_crossing > 0.1 or energy < 500:
         return 0
 
     # Normalize the frame to -1 to 1
@@ -119,7 +130,7 @@ def cepstrum_method(frame, sampleRate):
     peak = np.argmax(cepstrum[start:end])
     
     # Convert to the corresponding frequency
-    f0 = sampleRate/(start+peak)
+    f0 = sample_rate/(start+peak)
     
     if f0 > 100 and f0 < 400:
         return f0
@@ -128,26 +139,26 @@ def cepstrum_method(frame, sampleRate):
 
 
 
-def getWavFiles(options, gui):
+def getwav_files(options, gui):
     """
     Locate, open and extract the wav files
     Return a list of all the wav samples with their sample rate and data list
     """
-    wavFiles = []
+    wav_files = []
     with open(gui) as f:
         for line in f:
             line = line.strip()
             if len(line) == 0:
                 continue
-            fileName = os.path.join(options.datadir, line + ".wav")
-            sampleRate, data = wavfile.read(fileName)
+            file_name = os.path.join(options.datadir, line + ".wav")
+            sample_rate, data = wavfile.read(file_name)
 
             nSamples = len(data)
 
             # From miliseconds to samples
-            ns_windowlength = int(round((options.windowlength * sampleRate) / 1000))
-            ns_frameshift = int(round((options.frameshift * sampleRate) / 1000))
-            ns_padding = int(round((options.padding * sampleRate) / 1000))
+            ns_windowlength = int(round((options.windowlength * sample_rate) / 1000))
+            ns_frameshift = int(round((options.frameshift * sample_rate) / 1000))
+            ns_padding = int(round((options.padding * sample_rate) / 1000))
 
             frames = []
             for ini in range(-ns_padding, nSamples - ns_windowlength + ns_padding + 1, ns_frameshift):
@@ -156,10 +167,9 @@ def getWavFiles(options, gui):
                 frame = data[first_sample:last_sample]
                 frames.append(frame)
 
-            wavFiles.append({"fileName": fileName, "sampleRate": sampleRate, "frames": frames})
-                
+            wav_files.append({"file_name": file_name, "sample_rate": sample_rate, "frames": frames})
 
-    return wavFiles
+    return np.array(wav_files)
 
 
 
@@ -168,27 +178,27 @@ def main(options, args):
     Main script function
     """
     # get the wav files
-    wavFiles = getWavFiles(options, args[0])
+    wav_files = getwav_files(options, args[0])
 
     # print the algorithm name at the top of the directory
-    header_file = os.path.join(os.path.dirname(wavFiles[0]["fileName"]), "algorithm.info")
+    header_file = os.path.join(os.path.dirname(wav_files[0]["file_name"]), "algorithm.info")
     with open(header_file, 'wt') as header_file:
         print(options.method, file=header_file)
 
 
-    for wavFile in wavFiles:
-        f0_filename = wavFile["fileName"].replace(".wav", ".f0")
-        with open(f0_filename, 'wt') as f0file:
-            print("Processing:", wavFile["fileName"], "with", options.method, '->', f0_filename)
-            for frame in wavFile["frames"]:
+    for wav_file in wav_files:
+        f0_file_name = wav_file["file_name"].replace(".wav", ".f0")
+        with open(f0_file_name, 'wt') as f0file:
+            print("Processing:", wav_file["file_name"], "with", options.method, '->', f0_file_name)
+            for frame in wav_file["frames"]:
                 # compute the pitch for each frame
                 f0 = 0
                 if options.method == "autocorrelation":
-                    f0 = autocorr_method(frame, wavFile["sampleRate"])
+                    f0 = autocorr_method(frame, wav_file["sample_rate"])
                 elif options.method == "amdf":
-                    f0 = amdf_method(frame, wavFile["sampleRate"])
+                    f0 = amdf_method(frame, wav_file["sample_rate"])
                 elif options.method == "cepstrum":
-                    f0 = cepstrum_method(frame, wavFile["sampleRate"])
+                    f0 = cepstrum_method(frame, wav_file["sample_rate"])
                 
                 # print the result in the new file
                 print(f0, file=f0file)

@@ -10,3 +10,4 @@ compare_pitch
 data/ptdb_tug*
 algorithm.info
 results/*
+.ipynb_checkpoints
