@@ -9,9 +9,26 @@ import os
 import numpy as np
 from scipy.io import wavfile
 from scipy.signal import correlate, hamming
+from sklearn.externals import joblib
 
 
+#################### UTILITIES ############################
 
+
+def get_class(zero_crossing, energy, r1, rmax):
+    """
+    Arbitrary rules to get the class of the frame with the features
+    """
+    if rmax < 0.5:
+        return False
+    elif zero_crossing > 0.3:
+        return False
+    elif r1 < 0.5:
+        return False
+    else:
+        return True
+    
+    
 def get_zero_crossing(frame):
     """
     Computes zero crossing rate of frame
@@ -20,26 +37,56 @@ def get_zero_crossing(frame):
     countZ = np.sum(np.abs(np.diff(np.sign(frame)))) / 2
     return (np.float64(countZ) / np.float64(count-1.0))
 
-
 def get_energy(frame):
     """
     Computes signal energy of frame
     """
-    return np.sum(frame ** 2) / np.float64(len(frame))
+    return np.log10(np.sum(frame ** 2) / np.float64(len(frame)))
 
-def autocorr_method(frame, sample_rate):
-    """
-    Estimate pitch using autocorrelation
-    """
-    # Calculate autocorrelation using scipy correlate
+def get_autocorr(frame):
     frame = frame.astype(np.float)
     frame -= frame.mean()
     amax = np.abs(frame).max()
-    if amax > 0:
-        frame /= amax
-    else:
-        return 0
+    frame /= amax
+    defvalue = (0.0, 1.0)
+    corr = correlate(frame, frame)
+    # keep the positive part
+    corr = corr[round(len(corr)/2):]
 
+    # Find the first minimum
+    dcorr = np.diff(corr)
+    rmin = np.where(dcorr > 0)[0]
+    if len(rmin) > 0:
+        rmin1 = rmin[0]
+    else:
+        return defvalue
+
+    # Find the next peak
+    peak = np.argmax(corr[rmin1:]) + rmin1
+
+    # Two features
+    r1=corr[1]/corr[0]
+    rmax = corr[peak]/corr[0]
+
+    return r1, rmax
+
+def preprocess_frame(frame):
+    """
+    Apply some treatment to the frame to make it easier to process
+    """
+    frame = frame.astype(np.float)
+    frame -= frame.mean() # center
+    amax = np.abs(frame).max()
+    frame /= amax # normalize
+    return frame
+
+
+##################### PITCH ALGORITHMS #########################
+
+def autocorr_method(frame, sample_rate):
+    """
+    Estimate pitch using autocorrelation and predefined coefficient threshold for voicing determination
+    """
     corr = correlate(frame, frame)
     # keep the positive part
     corr = corr[len(corr)//2:]
@@ -62,23 +109,17 @@ def autocorr_method(frame, sample_rate):
     else:
         return 0
 
-def amdf_method(frame, sample_rate):
+def mdf_method(frame, sample_rate):
     """
-    estimate the pitch using mdf algorithm
+    estimate the pitch using mdf algorithm and machine learning model for prediction
     """
-    energy = get_energy(frame)
     zero_crossing = get_zero_crossing(frame)
+    energy = get_energy(frame)
+    r1, rmax = get_autocorr(frame)
+    predicted_class = get_class(zero_crossing, energy, r1, rmax)
 
-    # if zero_crossing > 0.1 or energy < 500:
-    #     return 0
-
-    # preprocessing
-    frame = frame.astype(np.float)
-    frame -= frame.mean()
-    amax = np.abs(frame).max()
-    if amax > 0:
-        frame /= amax
-    else:
+    if not predicted_class:
+        # it's unvoiced, no need to compute pitch
         return 0
 
     minValue = float("inf")
@@ -106,11 +147,15 @@ def amdf_method(frame, sample_rate):
 
 def cepstrum_method(frame, sample_rate):
     """
+    Perform pitch estimation with cepstrum method and machine learning model for prediction
     """
-    energy = get_energy(frame)
     zero_crossing = get_zero_crossing(frame)
+    energy = get_energy(frame)
+    r1, rmax = get_autocorr(frame)
+    predicted_class = get_class(zero_crossing, energy, r1, rmax)
 
-    if zero_crossing > 0.1 or energy < 500:
+    if not predicted_class:
+        # it's unvoiced, no need to compute pitch
         return 0
 
     # Normalize the frame to -1 to 1
@@ -138,6 +183,7 @@ def cepstrum_method(frame, sample_rate):
         return 0
 
 
+############################## FILE LOADING ##############################################
 
 def getwav_files(options, gui):
     """
@@ -165,13 +211,12 @@ def getwav_files(options, gui):
                 first_sample = max(0, ini)
                 last_sample = min(nSamples, ini + ns_windowlength)
                 frame = data[first_sample:last_sample]
+                # make preprocessing here
+                frame = preprocess_frame(frame)
                 frames.append(frame)
 
             wav_files.append({"file_name": file_name, "sample_rate": sample_rate, "frames": frames})
-
     return np.array(wav_files)
-
-
 
 def main(options, args):
     """
@@ -185,7 +230,6 @@ def main(options, args):
     with open(header_file, 'wt') as header_file:
         print(options.method, file=header_file)
 
-
     for wav_file in wav_files:
         f0_file_name = wav_file["file_name"].replace(".wav", ".f0")
         with open(f0_file_name, 'wt') as f0file:
@@ -195,14 +239,13 @@ def main(options, args):
                 f0 = 0
                 if options.method == "autocorrelation":
                     f0 = autocorr_method(frame, wav_file["sample_rate"])
-                elif options.method == "amdf":
-                    f0 = amdf_method(frame, wav_file["sample_rate"])
+                elif options.method == "mdf":
+                    f0 = mdf_method(frame, wav_file["sample_rate"])
                 elif options.method == "cepstrum":
                     f0 = cepstrum_method(frame, wav_file["sample_rate"])
                 
                 # print the result in the new file
                 print(f0, file=f0file)
-
 
 
 if __name__ == "__main__":
@@ -222,13 +265,13 @@ if __name__ == "__main__":
         '-d', '--datadir', type='string', default='data',
         help='data folder')
     optparser.add_option(
-        '-m', '--method', type='string', default='amdf',
-        help='pitch detection method: autocorrelation, cepstrum or amdf (default)')
+        '-m', '--method', type='string', default='mdf',
+        help='pitch detection method: autocorrelation, cepstrum or mdf (default)')
 
     options, args = optparser.parse_args()
 
     if options.method:
-        if options.method not in ["autocorrelation", "cepstrum", "amdf"]:
+        if options.method not in ["autocorrelation", "cepstrum", "mdf"]:
             print("The method {} is not valid".format(options.method))
             optparser.print_help()
             exit(-1)

@@ -5,12 +5,38 @@
 Download the FDA-UE database to test the script and optionnaly the PTDB-TUB database to train the model (see below)
 
 You need Python 3
+Install the Python dependencies
+```
+$ pip3 install -r requirements.txt  
+```
 
-"""
-Make
-"""
+Compile the program
+```
+$ Make
+```
 
 ## How to use it
+
+Execute the pitch recognition script with choosing an algorithm
+```
+Usage: python3 get_pitch.py [OPTION]... FILELIST
+
+Simple pitch estimation
+
+Options:
+  -h, --help            show this help message and exit
+  -w WINDOWLENGTH, --windowlength=WINDOWLENGTH
+                        windows length (ms)
+  -f FRAMESHIFT, --frameshift=FRAMESHIFT
+                        frame shift (ms)
+  -p PADDING, --padding=PADDING
+                        zero padding (ms)
+  -d DATADIR, --datadir=DATADIR
+                        data folder
+  -m METHOD, --method=METHOD
+                        pitch detection method: autocorrelation, cepstrum or
+                        mdf (default)
+```
 
 ### Machine Learning model
 
@@ -20,9 +46,9 @@ Make
 
 You can clean the computed pitchs for all algorithm located in data/fda_ue with the script clean_results/sh
 
-"""
+```
 source clean_results/sh
-"""
+```
 
 ### Compare results
 
