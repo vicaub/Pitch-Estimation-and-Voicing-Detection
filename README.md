@@ -15,6 +15,7 @@ Compile the program
 $ Make
 ```
 
+
 ## How to use it
 
 Execute the pitch recognition script with choosing an algorithm
@@ -38,19 +39,49 @@ Options:
                         mdf (default)
 ```
 
-### Machine Learning model
+Then you can use the c++ script to compare the results with the reference
+````
+./compare_pitch fda_ue.gui
+````
 
-### Compute pitchs
+It will generate a file in ./results folder showing 
 
-### Clean pitch results
+    Voiced frames -> unvoiced (1 - recall voiced)
+    Number of unvoiced frames that have been erroneously classified as voiced.
+    Unvoiced frames -> voiced: (1 - recall unvoiced)
+    Number of voiced frames that have been erroneously classified as unvoiced.
+    Gross voiced errors:
+    In voiced frames, detected as voiced,
+    Pitch errors greater than 20%
+    MSE of fine errors:
+    In voiced frames, detected as voiced with an error less than 20%,
+    the average of that error. (Mean Squared Error)
+     
+It also provides a summary with the average over all files.
+
+
+```
+./pitch_compare fda_ue.gui
+
+### Summary
+Num. frames:	22140 = 13916 unvoiced + 8224 voiced
+Unvoiced frames as voiced:	309/13916 (2.2%)
+Voiced frames as unvoiced:	1661/8224 (20%)
+Gross voiced errors (+20%):	30/6563 (0.46%)
+MSE of fine errors:	2%
+```
+
+You can also execute all the three available algorithm and the comparison with the command
+```
+source test.sh
+```
+## Clean pitch results
 
 You can clean the computed pitchs for all algorithm located in data/fda_ue with the script clean_results/sh
 
 ```
 source clean_results/sh
 ```
-
-### Compare results
 
 ## Source code license ##
 * The source code of this project is licensed under the terms of the MIT license
